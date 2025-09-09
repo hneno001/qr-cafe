@@ -3,11 +3,11 @@
   --radius: 14px;
   --bar-h: 90px; /* височина на долната лента (прибл.) */
 
-  /* Compact quantity controls */
-  --qty-size: 30px;   /* width/height of –/+ */
-  --qty-font: 16px;   /* symbol size */
+  /* ultra-compact quantity controls */
+  --qty-size: 26px;   /* width/height of –/+ */
+  --qty-font: 14px;   /* symbol size */
   --qty-gap: 6px;     /* space between buttons and number */
-  --qty-num-w: 20px;  /* min width of the number */
+  --qty-num-w: 16px;  /* min width of the number */
 }
   
 /* ===== reset / база ===== */
@@ -67,15 +67,13 @@ body{
   display: flex; flex-direction: column; gap: 10px;
 }
   
-/* ── Item row: robust grid with areas ─────────────────────────── */
+/* ── Item row: name + price same row; qty on right ───────────── */
 .item-row{
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas:
-    "main price"
-    "qty  qty";
+  grid-template-columns: minmax(0,1fr) auto auto; /* name | price | qty */
+  grid-template-areas: "name price qty";
   align-items: center;
-  gap: 10px;
+  gap: 8px 12px;
   padding: 10px;
   border: 1px solid #eee;
   border-radius: 12px;
@@ -83,8 +81,7 @@ body{
 }
 
 .item-main{
-  grid-area: main;
-  display: block;         /* content flows naturally */
+  grid-area: name;
   min-width: 0;           /* allow wrapping instead of squishing */
 }
 
@@ -95,6 +92,9 @@ body{
   word-break: normal;
   white-space: normal;
   hyphens: auto;          /* better Bulgarian word breaks */
+  /* if you want to hard-limit height:
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  */
 }
 
 .item-price{
@@ -102,14 +102,16 @@ body{
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-self: end;
   line-height: 1.15;
   text-align: right;
+  min-width: max-content; /* keep price compact and on the same line */
 }
 
 .item-price-bgn{ font-size: 15px; color: #333; }
 .item-price-eur{ font-size: 12px; color: #666; }
 
-/* Quantity controls (compact & don’t shrink) */
+/* Quantity controls (compact, don’t shrink) */
 .qty{
   grid-area: qty;
   justify-self: end;
@@ -122,52 +124,54 @@ body{
   flex: 0 0 var(--qty-size);
   width: var(--qty-size);
   height: var(--qty-size);
+  display: inline-grid;         /* perfect centering of the glyph */
+  place-items: center;
   border-radius: 10px;
   border: 1px solid #ddd;
   background:#fff;
   font-size: var(--qty-font);
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .qty-num{
   flex: 0 0 var(--qty-num-w);
   min-width: var(--qty-num-w);
   text-align: center;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
-
-/* ── Tiny screens: stack rows so nothing gets squished ────────── */
-@media (max-width: 400px){
+  
+/* ── Tiny screens: keep name+price on first row; move qty under ─ */
+@media (max-width: 420px){
   .item-row{
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0,1fr) auto;
     grid-template-areas:
-      "main"
-      "qty"
-      "price";
+      "name price"
+      "qty  qty";
   }
   .item-price{ justify-self: end; align-items: flex-end; }
   .qty{ justify-self: end; }
 
   /* even smaller qty on tiny phones */
   :root{
-    --qty-size: 28px;
-    --qty-font: 15px;
+    --qty-size: 24px;
+    --qty-font: 13px;
     --qty-gap: 5px;
-    --qty-num-w: 18px;
+    --qty-num-w: 16px;
   }
-
-  .item-name{ font-size: clamp(15px, 4.2vw, 17px); }
 }
 
 /* Very small devices */
 @media (max-width: 340px){
   :root{
-    --qty-size: 26px;
-    --qty-font: 14px;
-    --qty-num-w: 16px;
+    --qty-size: 22px;
+    --qty-font: 12px;
+    --qty-num-w: 14px;
   }
 }
   
