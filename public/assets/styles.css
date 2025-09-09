@@ -521,3 +521,25 @@ button.chip:active{ transform: translateY(1px); }
   .oc-head, .oc-actions{ flex-wrap: nowrap; }
   .oc-left, .oc-right, .oc-list{ min-width: 0; }
 }
+
+/* ===== Minimal +/- (symbols only, no outline box) ===== */
+.btn-qty{
+  display: inline-block;
+  width: var(--qty-size);
+  height: var(--qty-size);
+  line-height: var(--qty-size);   /* perfect vertical centering */
+  text-align: center;
+
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+
+  font-size: var(--qty-font);
+  font-weight: 700;
+  color: #111;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(var(--qty-nudge-y, 0));
+  padding: 0;
+}
+
+.btn-qty:active{ transform: translateY(var(--qty-nudge-y, 0)) scale(0.96); }
