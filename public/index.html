@@ -44,29 +44,7 @@
     </div>
   </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.item-name').forEach(el => {
-    // Skip if already processed
-    if (el.dataset.split === '1') return;
-    const words = el.textContent.trim().split(/\s+/);
-    if (words.length < 3) return;
-
-    const frag = document.createDocumentFragment();
-    words.forEach((w, i) => {
-      frag.appendChild(document.createTextNode(w));
-      if (i < words.length - 1) frag.appendChild(document.createTextNode(' '));
-      // break after every 2nd word so the 3rd goes to the next line:
-      if (i % 3 === 1 && i < words.length - 1) {
-        frag.appendChild(document.createElement('br'));
-      }
-    });
-
-    el.textContent = '';
-    el.appendChild(frag);
-    el.dataset.split = '1';
-  });
-});  
+<script>  
 const params = new URLSearchParams(location.search);
 const token = (params.get('t') || '').replace(/[^A-Za-z0-9]/g,'');
 if (!token) {
