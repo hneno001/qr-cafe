@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Барман — Активни поръчки</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="topnav">
+    <a href="bartender.html" class="active">Активни</a>
+    <a href="history.html">История</a>
+    <span class="spacer"></span>
+    <button class="chip" id="logoutBtn" title="Изход">Изход</button>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h2>Активни поръчки</h2>
+      </div>
+
+      <div id="orders" class="orders-grid">
+        <div class="empty">Зареждане…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Потвърждение -->
+  <div id="confirmModal" class="modal" aria-hidden="true">
+    <div class="modal__backdrop" onclick="closeConfirm()"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <h3 id="confirmTitle">Потвърждение</h3>
+      <p id="confirmText" class="notice" style="margin:10px 0 16px;"></p>
+      <div class="modal__actions">
+        <button id="confirmYes" class="primary">Да, потвърждавам</button>
+        <button id="confirmNo">Отказ</button>
+      </div>
+    </div>
+  </div>
+
+<script src="assets/auth.js"></script>
+<script>
+const ordersEl = document.getElementById('orders');
+staffAuth.attachLogout('logoutBtn');
+
+const STATUS_BG = {
+  NEW: 'Нова', IN_PROGRESS: 'В процес', READY: 'Готова',
+  SERVED: 'Сервирана', CANCELLED: 'Отказана'
+};
+
+let staffKey = ''; // ще се попълни след require()
+
+function fmtTime(ts){
+  try { return new Date(ts).toLocaleTimeString('bg-BG', {hour:'2-digit', minute:'2-digit'}); }
+  catch { return ''; }
+}
+
+function render(orders){
+  ordersEl.innerHTML = '';
+  if (!orders || !orders.length) {
+    ordersEl.innerHTML = '<div class="empty">Няма активни поръчки.</div>';
+    return;
+  }
+  orders.forEach(o => {
+    const itemsHtml = (o.items || [])
+      .map(it => `<div class="itemline"><span class="qty">${it.qty}×</span><span class="name">${it.name}</span></div>`)
+      .join('');
+
+    const card = document.createElement('div');
+    card.className = 'order-card';
+    card.id = `order-${o.id}`;
+    card.innerHTML = `
+      <div class="oc-head">
+        <div class="oc-left">
+          <div class="oc-id">№ ${o.id}</div>
+          <div class="chip">${o.table}</div>
+        </div>
+        <div class="oc-right">
+          <div class="oc-time" title="${o.created_at || ''}">${fmtTime(o.created_at)}</div>
+          <div class="oc-status ${o.status}">${STATUS_BG[o.status] || o.status}</div>
+        </div>
+      </div>
+      <div class="oc-list">${itemsHtml || '<div class="itemline"><em>Няма артикули</em></div>'}</div>
+      <div class="oc-actions">
+        <button onclick="updateStatus(${o.id},'IN_PROGRESS','${o.status}')">В процес</button>
+        <button onclick="updateStatus(${o.id},'READY','${o.status}')">Готова</button>
+        <button class="danger" onclick="openConfirm(${o.id},'CANCELLED','${o.status}')">Отказ</button>
+        <button class="success" onclick="openConfirm(${o.id},'SERVED','${o.status}')">Сервирана</button>
+      </div>
+    `;
+    ordersEl.appendChild(card);
+  });
+}
+
+async function loadInitial(){
+  ordersEl.innerHTML = '<div class="empty">Зареждане…</div>';
+  try {
+    const r = await fetch('/api/orders/latest', { headers: { 'x-staff-key': staffKey } });
+    if (!r.ok) { ordersEl.innerHTML = '<div class="empty">Достъп отказан. Влезте отново.</div>'; return; }
+    const data = await r.json();
+    render(data);
+  } catch {
+    ordersEl.innerHTML = '<div class="empty">Грешка при зареждане.</div>';
+  }
+}
+
+let ws;
+function connectWS(){
+  if (ws) { try { ws.close(); } catch(e){} }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${proto}://${location.host}/ws?key=${encodeURIComponent(staffKey)}`; // WS очаква ?key=
+  ws = new WebSocket(url);
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'orders_snapshot') render(msg.data);
+    } catch {}
+  };
+  ws.onclose = () => setTimeout(() => { if (staffKey) connectWS(); }, 2000);
+}
+
+// потвърждение
+let pendingAction = null;
+function openConfirm(orderId, status, current){
+  pendingAction = { orderId, status, current };
+  const txt = document.getElementById('confirmText');
+  txt.textContent = status === 'SERVED'
+    ? `Маркиране на поръчка №${orderId} като „Сервирана“. Потвърждавате ли?`
+    : `Отказ на поръчка №${orderId}. Действието е необратимо — потвърждавате ли?`;
+  document.getElementById('confirmModal').classList.add('open');
+  document.getElementById('confirmYes').focus();
+}
+function closeConfirm(){ document.getElementById('confirmModal').classList.remove('open'); pendingAction = null; }
+document.getElementById('confirmYes').addEventListener('click', async () => {
+  if (!pendingAction) return;
+  await updateStatus(pendingAction.orderId, pendingAction.status, pendingAction.current);
+  closeConfirm();
+});
+document.getElementById('confirmNo').addEventListener('click', closeConfirm);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeConfirm(); });
+
+function removeCardAnimated(orderId){
+  const el = document.getElementById(`order-${orderId}`);
+  if (!el) return;
+  el.classList.add('removing');
+  setTimeout(() => {
+    el.remove();
+    if (!ordersEl.querySelector('.order-card')) {
+      ordersEl.innerHTML = '<div class="empty">Няма активни поръчки.</div>';
+    }
+  }, 200);
+}
+
+async function updateStatus(orderId, status, current){
+  try {
+    const res = await fetch('/api/orders/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: staffKey, order_id: orderId, status, current_status: current })
+    });
+    if (!res.ok) { const t = await res.text(); alert('Неуспешна промяна: ' + t); return; }
+    if (status === 'SERVED' || status === 'CANCELLED') removeCardAnimated(orderId);
+  } catch { alert('Мрежова грешка.'); }
+}
+
+// Guard + старт
+(async () => {
+  try {
+    staffKey = await staffAuth.require(); // ако няма ключ → redirect към login
+    loadInitial(); connectWS();
+  } catch {}
+})();
+</script>
+</body>
+</html>

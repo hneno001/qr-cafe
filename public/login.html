@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Вход — Барман</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="container" style="max-width:480px;">
+    <div class="card auth-card">
+      <h2 style="margin-top:0;">Вход за персонал</h2>
+      <p class="notice">Въведете служебния ключ, за да видите поръчките.</p>
+
+      <div class="field">
+        <label for="staffKey">Служебен ключ</label>
+        <input type="password" id="staffKey" class="input" placeholder="••••••••" autofocus />
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+        <button class="primary" id="loginBtn">Вход</button>
+        <div id="err" class="notice" style="color:#dc2626;"></div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+async function verify(key){
+  try{
+    const r = await fetch('/api/staff/verify?key='+encodeURIComponent(key));
+    return r.ok;
+  }catch{ return false; }
+}
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const key = document.getElementById('staffKey').value.trim();
+  const err = document.getElementById('err');
+  err.textContent = '';
+  if(!key){ err.textContent = 'Моля, въведете ключ.'; return; }
+  const ok = await verify(key);
+  if(!ok){ err.textContent = 'Невалиден ключ.'; return; }
+  localStorage.setItem('staff_key', key);
+  location.href = 'bartender.html';
+});
+document.getElementById('staffKey').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('loginBtn').click();
+});
+</script>
+</body>
+</html>

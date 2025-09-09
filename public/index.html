@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Меню — QR Кафе</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header sticky-top">
+        <div>
+          <div class="table-label">Маса: <span id="tableName">Зареждане…</span></div>
+          <div class="notice">Добавете с „+“, после натиснете „Изпрати“.</div>
+          <div class="notice">Показваме и евро (курс 1 € = 1.95 лв.)</div>
+        </div>
+        <div class="badge" id="cartCount" aria-live="polite">0</div>
+      </div>
+
+      <div id="menu"></div>
+      <div id="statusMsg" class="notice" aria-live="polite" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- Фиксирана лента долу -->
+  <div class="checkout-bar" role="region" aria-label="Общо и изпращане">
+    <div class="checkout-total">
+      <span>Общо:</span>
+      <strong id="totalAmount">0,00 лв.</strong>
+      <small id="totalAmountEur">0,00 €</small>
+    </div>
+    <button class="primary checkout-btn" id="placeBtn" disabled>Изпрати</button>
+  </div>
+
+  <!-- Резултат (успех/грешка) — без авто-затваряне -->
+  <div id="resultModal" class="result-modal" aria-hidden="true">
+    <div class="result-backdrop" onclick="hideResult()"></div>
+    <div class="result-card" role="alertdialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div id="resultIcon" class="result-icon"></div>
+      <h3 id="resultTitle" class="result-title">Успешно!</h3>
+      <p id="resultText" class="result-text"></p>
+      <button id="resultOk" class="primary" onclick="hideResult()">ОК</button>
+    </div>
+  </div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const token = (params.get('t') || '').replace(/[^A-Za-z0-9]/g,'');
+if (!token) {
+  document.body.innerHTML = '<p style="padding:16px;">Невалидна или липсваща връзка за маса.</p>';
+}
+
+let cart = {}; // productId -> {name, price, qty}
+
+const RATE_EUR = 1.95; // 1 € = 1.95 лв.
+const fmtBGN = new Intl.NumberFormat('bg-BG', { style: 'currency', currency: 'BGN' });
+const fmtEUR = new Intl.NumberFormat('bg-BG', { style: 'currency', currency: 'EUR' });
+
+function moneyBGN(n){ return fmtBGN.format(Number(n)); }
+function moneyEURfromBGN(nBGN){ return fmtEUR.format(Number(nBGN) / RATE_EUR); }
+
+async function loadTableLabel(){
+  try {
+    const r = await fetch('/api/table?token=' + encodeURIComponent(token));
+    if (!r.ok) {
+      document.getElementById('tableName').textContent = 'Невалидна';
+      msg('Невалидна или деактивирана маса.');
+      document.getElementById('placeBtn').disabled = true;
+      return;
+    }
+    const t = await r.json();
+    document.getElementById('tableName').textContent = t.name || t.id;
+  } catch {
+    document.getElementById('tableName').textContent = 'Грешка';
+  }
+}
+
+async function loadMenu(){
+  const res = await fetch('/api/menu');
+  const data = await res.json();
+  const root = document.getElementById('menu');
+  root.innerHTML = '';
+
+  // Категории като accordion (<details>)
+  data.categories.forEach(cat => {
+    if (!cat.items || !cat.items.length) return;
+
+    const details = document.createElement('details');
+    details.className = 'category';
+
+    const summary = document.createElement('summary');
+    summary.className = 'category-summary';
+    summary.innerHTML = `<span>${cat.name}</span><span class="chev" aria-hidden="true"></span>`;
+    details.appendChild(summary);
+
+    const list = document.createElement('div');
+    list.className = 'list';
+    cat.items.forEach(it => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      // показваме BGN + EUR една под друга
+      row.innerHTML = `
+        <div class="item-main">
+          <div class="item-name">${it.name}</div>
+          <div class="item-price">
+            <div class="item-price-bgn">${moneyBGN(it.price)}</div>
+            <div class="item-price-eur">${moneyEURfromBGN(it.price)}</div>
+          </div>
+        </div>
+        <div class="qty">
+          <button class="btn-qty" aria-label="Намали" onclick="dec(${it.id})">−</button>
+          <div class="qty-num" id="q_${it.id}" aria-live="polite">0</div>
+          <button class="btn-qty" aria-label="Добави" onclick="inc(${it.id}, '${it.name.replace(/'/g, "\\'")}', ${it.price})">+</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+    details.appendChild(list);
+    root.appendChild(details);
+  });
+}
+
+function inc(id, name, price){
+  cart[id] = cart[id] || {name, price, qty:0};
+  cart[id].qty++;
+  updateUI();
+}
+function dec(id){
+  if(!cart[id]) return;
+  cart[id].qty--;
+  if(cart[id].qty <= 0) delete cart[id];
+  updateUI();
+}
+
+function updateUI(){
+  let totalBGN = 0, count = 0;
+  Object.values(cart).forEach(i=>{ totalBGN += i.qty * i.price; count += i.qty; });
+
+  document.getElementById('totalAmount').textContent = moneyBGN(totalBGN);
+  document.getElementById('totalAmountEur').textContent = moneyEURfromBGN(totalBGN);
+  document.getElementById('cartCount').textContent = count;
+
+  // зануляваме всички видими броячи
+  document.querySelectorAll('[id^="q_"]').forEach(el => el.textContent = '0');
+  // задаваме количествата за артикулите в количката
+  Object.entries(cart).forEach(([pid, i]) => {
+    const el = document.getElementById('q_'+pid);
+    if (el) el.textContent = i.qty;
+  });
+
+  document.getElementById('placeBtn').disabled = count === 0;
+}
+
+async function placeOrder(){
+  if(Object.keys(cart).length === 0){
+    showResult('error', 'Кошницата е празна.');
+    return;
+  }
+
+  const items = Object.entries(cart).map(([product_id, i]) => ({ product_id: Number(product_id), qty: i.qty }));
+  const client_key = (crypto.randomUUID && crypto.randomUUID()) || String(Math.random()).slice(2);
+
+  const btn = document.getElementById('placeBtn');
+  btn.disabled = true; // защита от двойно изпращане
+
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, items, client_key })
+    });
+
+    if(!res.ok){
+      let text = await res.text();
+      try { const j = JSON.parse(text); text = j.error || text; } catch(e){}
+      showResult('error', text || 'Неуспешно изпращане на поръчката.');
+      return;
+    }
+
+    const data = await res.json();
+    if(data.success){
+      cart = {};
+      updateUI();
+      showResult('success', 'Поръчка № ' + data.order_id + ' изпратена! Благодарим.');
+    } else {
+      showResult('error', data.error || 'Грешка.');
+    }
+  } catch {
+    showResult('error', 'Мрежова грешка. Опитайте отново.');
+  } finally {
+    btn.disabled = Object.keys(cart).length === 0; // активира отново ако има нещо в количката
+  }
+}
+
+function msg(t){ document.getElementById('statusMsg').textContent = t; }
+document.getElementById('placeBtn').addEventListener('click', placeOrder);
+
+// --------- Попъп: успех / грешка (без авто-close) ---------
+let lastFocus = null;
+function showResult(kind, text){
+  const modal = document.getElementById('resultModal');
+  const icon = document.getElementById('resultIcon');
+  const title = document.getElementById('resultTitle');
+  const body = document.getElementById('resultText');
+  const okBtn = document.getElementById('resultOk');
+
+  modal.classList.remove('success','error','open');
+  icon.innerHTML = '';
+
+  if (kind === 'success') {
+    modal.classList.add('success');
+    title.textContent = 'Успешно!';
+    icon.innerHTML = `
+      <svg viewBox="0 0 120 120" width="96" height="96" aria-hidden="true">
+        <circle cx="60" cy="60" r="56" fill="#22c55e" opacity="0.15"></circle>
+        <circle cx="60" cy="60" r="56" fill="none" stroke="#22c55e" stroke-width="6"></circle>
+        <path d="M35 63 L54 80 L86 45" fill="none" stroke="#22c55e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+  } else {
+    modal.classList.add('error');
+    title.textContent = 'Неуспешно';
+    icon.innerHTML = `
+      <svg viewBox="0 0 120 120" width="96" height="96" aria-hidden="true">
+        <circle cx="60" cy="60" r="56" fill="#ef4444" opacity="0.15"></circle>
+        <circle cx="60" cy="60" r="56" fill="none" stroke="#ef4444" stroke-width="6"></circle>
+        <path d="M40 40 L80 80 M80 40 L40 80" fill="none" stroke="#ef4444" stroke-width="8" stroke-linecap="round"/>
+      </svg>`;
+  }
+  body.textContent = text || '';
+
+  lastFocus = document.activeElement;   // accessibility: после връщаме фокуса
+  modal.classList.add('open');
+  okBtn.focus();
+}
+
+function hideResult(){
+  const modal = document.getElementById('resultModal');
+  modal.classList.remove('open');
+  if (lastFocus && typeof lastFocus.focus === 'function') { lastFocus.focus(); }
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideResult(); });
+
+// Старт
+loadTableLabel();
+loadMenu().then(updateUI);
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Барман — История на поръчките</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div class="topnav">
+    <a href="bartender.html">Активни</a>
+    <a href="history.html" class="active">История</a>
+    <span class="spacer"></span>
+    <button class="chip" id="logoutBtn" title="Изход">Изход</button>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="header" style="margin-bottom: 4px;">
+        <h2 style="margin: 0;">История на поръчките</h2>
+      </div>
+
+      <div class="toolbar">
+        <div class="field">
+          <label for="status">Статус</label>
+          <div class="select">
+            <select id="status">
+              <option value="ALL">Всички приключени</option>
+              <option value="SERVED">Сервирани</option>
+              <option value="CANCELLED">Отказани</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="date">Дата</label>
+          <input type="date" id="date" class="input date" />
+        </div>
+
+        <div class="field actions">
+          <button class="primary" id="loadBtn">Зареди</button>
+          <button class="chip" id="quickToday" title="Днес">Днес</button>
+          <button class="chip" id="quickYesterday" title="Вчера">Вчера</button>
+        </div>
+      </div>
+
+      <div id="orders" class="orders-grid">
+        <div class="empty">Изберете дата и натиснете „Зареди“.</div>
+      </div>
+    </div>
+  </div>
+
+<script src="assets/auth.js"></script>
+<script>
+staffAuth.attachLogout('logoutBtn');
+let staffKey = '';
+
+const ordersEl  = document.getElementById('orders');
+const statusSel = document.getElementById('status');
+const dateInput = document.getElementById('date');
+const loadBtn   = document.getElementById('loadBtn');
+const qToday    = document.getElementById('quickToday');
+const qYest     = document.getElementById('quickYesterday');
+
+const STATUS_BG = { NEW:'Нова', IN_PROGRESS:'В процес', READY:'Готова', SERVED:'Сервирана', CANCELLED:'Отказана' };
+
+function fmtTime(ts){
+  try {
+    return new Date(ts).toLocaleString('bg-BG', { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' });
+  } catch { return ''; }
+}
+function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function setToday(){ dateInput.value = todayStr(); }
+function setYesterday(){ const d = new Date(); d.setDate(d.getDate()-1); dateInput.value = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+
+function render(orders){
+  ordersEl.innerHTML = '';
+  if (!orders || !orders.length) { ordersEl.innerHTML = '<div class="empty">Няма записи за избраната дата.</div>'; return; }
+  for (const o of orders){
+    const itemsHtml = (o.items || []).map(it => `<div class="itemline"><span class="qty">${it.qty}×</span><span class="name">${it.name}</span></div>`).join('');
+    const card = document.createElement('div');
+    card.className = 'order-card';
+    card.innerHTML = `
+      <div class="oc-head">
+        <div class="oc-left"><div class="oc-id">№ ${o.id}</div><div class="chip">${o.table}</div></div>
+        <div class="oc-right"><div class="oc-time" title="Създадена: ${o.created_at || ''}">${fmtTime(o.created_at)}</div>
+        <div class="oc-status ${o.status}" title="Обновена: ${o.updated_at || ''}">${STATUS_BG[o.status] || o.status}</div></div>
+      </div>
+      <div class="oc-list">${itemsHtml || '<div class="itemline"><em>Няма артикули</em></div>'}</div>
+    `;
+    ordersEl.appendChild(card);
+  }
+}
+
+async function loadHistory(){
+  ordersEl.innerHTML = '<div class="empty">Зареждане…</div>';
+  const date = (dateInput.value || '').trim();
+  if (!date) { ordersEl.innerHTML = '<div class="empty">Изберете дата.</div>'; return; }
+
+  try {
+    const qs = new URLSearchParams({ status: statusSel.value, date });
+    // приемаме ключ и в хедър
+    const r = await fetch('/api/orders/history?'+qs.toString(), { headers: { 'x-staff-key': staffKey } });
+    if (!r.ok) { ordersEl.innerHTML = '<div class="empty">Достъп отказан. Влезте отново.</div>'; return; }
+    const data = await r.json();
+    render(data);
+  } catch {
+    ordersEl.innerHTML = '<div class="empty">Грешка при зареждане.</div>';
+  }
+}
+
+qToday.addEventListener('click', () => { setToday();     loadHistory(); });
+qYest .addEventListener('click', () => { setYesterday(); loadHistory(); });
+
+(async () => {
+  try{
+    staffKey = await staffAuth.require(); // при липса → redirect към login
+    if (!dateInput.value) setToday();
+    loadHistory();
+  }catch{}
+})();
+
+loadBtn.addEventListener('click', loadHistory);
+</script>
+</body>
+</html>
