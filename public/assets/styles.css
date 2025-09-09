@@ -9,6 +9,7 @@
   --qty-gap: 6px;     /* space between buttons and number */
   --qty-num-w: 16px;  /* min width of the number */
   --qty-nudge-y: 0px; /* fine-tune vertical if needed (e.g., -1px/+1px) */
+  --name-price-gap: clamp(12px, 2.5vw, 18px);
 }
   
 /* ===== reset / база ===== */
