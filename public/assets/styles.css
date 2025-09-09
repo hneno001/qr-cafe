@@ -8,6 +8,7 @@
   --qty-font: 14px;   /* symbol size */
   --qty-gap: 6px;     /* space between buttons and number */
   --qty-num-w: 16px;  /* min width of the number */
+  --qty-nudge-y: 0px; /* fine-tune vertical if needed (e.g., -1px/+1px) */
 }
   
 /* ===== reset / база ===== */
@@ -92,7 +93,7 @@ body{
   word-break: normal;
   white-space: normal;
   hyphens: auto;          /* better Bulgarian word breaks */
-  /* if you want to hard-limit height:
+  /* limit to two lines if desired:
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
   */
 }
@@ -120,22 +121,25 @@ body{
   gap: var(--qty-gap);
   flex: 0 0 auto;
 }
+
+/* PERFECT centering: line-height equals height (works across browsers) */
 .btn-qty{
-  flex: 0 0 var(--qty-size);
+  display: inline-block;
   width: var(--qty-size);
   height: var(--qty-size);
-  display: inline-grid;         /* perfect centering of the glyph */
-  place-items: center;
+  line-height: calc(var(--qty-size) - 0px); /* full vertical centering */
+  text-align: center;
   border-radius: 10px;
   border: 1px solid #ddd;
   background:#fff;
   font-size: var(--qty-font);
   font-weight: 600;
-  line-height: 1;
   cursor: pointer;
   touch-action: manipulation;
+  transform: translateY(var(--qty-nudge-y)); /* optional micro-nudge */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  padding: 0;
 }
 .qty-num{
   flex: 0 0 var(--qty-num-w);
