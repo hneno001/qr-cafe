@@ -122,25 +122,27 @@ body{
   flex: 0 0 auto;
 }
 
-/* PERFECT centering: line-height equals height (works across browsers) */
+/* ===== Minimal +/- (symbols only, no outline box) ===== */
 .btn-qty{
   display: inline-block;
   width: var(--qty-size);
   height: var(--qty-size);
-  line-height: calc(var(--qty-size) - 0px); /* full vertical centering */
+  line-height: var(--qty-size);   /* perfect vertical centering */
   text-align: center;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  background:#fff;
+
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+
   font-size: var(--qty-font);
-  font-weight: 600;
-  cursor: pointer;
-  touch-action: manipulation;
-  transform: translateY(var(--qty-nudge-y)); /* optional micro-nudge */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-weight: 700;
+  color: #111;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(var(--qty-nudge-y, 0));
   padding: 0;
 }
+
+.btn-qty:active{ transform: translateY(var(--qty-nudge-y, 0)) scale(0.96); }
 .qty-num{
   flex: 0 0 var(--qty-num-w);
   min-width: var(--qty-num-w);
@@ -522,24 +524,4 @@ button.chip:active{ transform: translateY(1px); }
   .oc-left, .oc-right, .oc-list{ min-width: 0; }
 }
 
-/* ===== Minimal +/- (symbols only, no outline box) ===== */
-.btn-qty{
-  display: inline-block;
-  width: var(--qty-size);
-  height: var(--qty-size);
-  line-height: var(--qty-size);   /* perfect vertical centering */
-  text-align: center;
 
-  border: none !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-
-  font-size: var(--qty-font);
-  font-weight: 700;
-  color: #111;
-  -webkit-tap-highlight-color: transparent;
-  transform: translateY(var(--qty-nudge-y, 0));
-  padding: 0;
-}
-
-.btn-qty:active{ transform: translateY(var(--qty-nudge-y, 0)) scale(0.96); }
