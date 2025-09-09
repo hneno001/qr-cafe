@@ -490,3 +490,40 @@ button.chip:active{ transform: translateY(1px); }
   .oc-head, .oc-actions{ flex-wrap: nowrap; }
   .oc-left, .oc-right, .oc-list{ min-width: 0; }
 }
+
+/* ===== Compact quantity controls (override) ===== */
+:root{
+  --qty-size: 36px;      /* button width/height (was 44px) */
+  --qty-font: 18px;      /* symbol size (was 22px) */
+  --qty-gap: 6px;        /* space between buttons and number (was 8–10px) */
+  --qty-num-w: 22px;     /* min width of the number (was 28px) */
+}
+
+.qty{
+  gap: var(--qty-gap);
+}
+
+.btn-qty{
+  width: var(--qty-size);
+  height: var(--qty-size);
+  font-size: var(--qty-font);
+  border-radius: 10px;        /* a hair smaller corner to match size */
+}
+
+.qty-num{
+  min-width: var(--qty-num-w);
+  font-size: 15px;            /* slightly smaller number */
+}
+
+/* Extra-compact on tiny phones */
+@media (max-width: 360px){
+  :root{
+    --qty-size: 32px;
+    --qty-font: 16px;
+    --qty-gap: 6px;
+    --qty-num-w: 20px;
+  }
+}
+
+/* If anything still tries to squeeze the cluster, don't let it shrink */
+.qty, .btn-qty, .qty-num{ flex: 0 0 auto; }
